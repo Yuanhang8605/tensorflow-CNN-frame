@@ -13,7 +13,6 @@ import threading
 
 import random
 
-# sys.path.append('.')
 from image_to_tfrecord_utils import convert_to_tfrecord
 
 _RANDOM_SEED = 222
