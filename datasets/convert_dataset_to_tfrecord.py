@@ -15,9 +15,8 @@ import random
 
 from image_to_tfrecord_utils import convert_to_tfrecord
 
-_RANDOM_SEED = 222
+_RANDOM_SEED = 2222
 _NUM_VALIDATION = 350
-
 
 tf.app.flags.DEFINE_string('dataset_dir', '/tmp/',
                            'dataset directory')
@@ -80,6 +79,7 @@ def _get_image_and_labels(dataset_dir, labels_file, fmt='jpg'):
   # random shuffle the data
   shuffled_index = list(range(len(filenames)))
   random.seed(_RANDOM_SEED)
+  random.shuffle(shuffled_index)
   random.shuffle(shuffled_index)
 
   filenames = [filenames[i] for i in shuffled_index]

@@ -53,7 +53,7 @@ def decode_and_crop(image_buffer, bbox= None, scope= None, ):
                           shape=[1, 1, 4])
     # Get a crop window with distorted bounding box.
     sample_distorted_bounding_box = tf.image.sample_distorted_bounding_box(
-      image_shape, bbox)
+      image_shape, bbox, min_object_covered=0.8)
     bbox_begin, bbox_size, distort_bbox = sample_distorted_bounding_box
 
     # Decode and crop image.
