@@ -19,11 +19,16 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 
-from preprocess_utils import apply_with_random_selector
-from preprocess_utils import decode_and_crop
-from preprocess_utils import distort_color
+# sys.path.append('.')
+# from preprocess_utils import apply_with_random_selector
+# from preprocess_utils import decode_and_crop
+# from preprocess_utils import distort_color
+# from preprocess_utils import mean_image_subtraction
 
-from collections import deque
+from .preprocess_utils import apply_with_random_selector
+from .preprocess_utils import decode_and_crop
+from .preprocess_utils import distort_color
+from .preprocess_utils import mean_image_subtraction
 
 
 class Image_PipeLine_Builder(object):
@@ -54,8 +59,6 @@ class Image_PipeLine_Builder(object):
     self._fast_mode = fast_mode
     self._seed = seed
     self._add_image_summary = add_image_summary
-    # show crop images for debug purpose
-    self.crop_images_with_box = deque(maxlen=32)
 
 
   @property
@@ -109,22 +112,11 @@ class Image_PipeLine_Builder(object):
       image, label = self._example_parser(example_proto)
       # preprocess the image
       # decode and crop the image
-      dis_image, dis_bbox = decode_and_crop(image)
-      # see the image_with_box, for debug purpose
-      image_with_box = tf.image.decode_jpeg(image, channels=3)
-      image_with_box = tf.image.convert_image_dtype(image_with_box,
-                                              tf.float32)
-      image_with_box = tf.image.draw_bounding_boxes(tf.expand_dims(image_with_box, 0), 
-                                                    dis_bbox)
-      image_with_box = tf.squeeze(image_with_box, [0])
-      self.crop_images_with_box.append(image_with_box)
-
-      if self._add_image_summary:
-        tf.summary.image('image_with_box', 
-                          tf.expand_dims(image_with_box, 0))
+      dis_image = decode_and_crop(image)
       
       if dis_image.dtype != tf.float32:
-        dis_image = tf.image.convert_image_dtype(dis_image, tf.float32)
+        # dis_image = tf.image.convert_image_dtype(dis_image, tf.float32)
+        dis_image = tf.to_float(dis_image)
 
       # resize image
       num_resize_cases = 1 if self._fast_mode else 4
@@ -145,8 +137,10 @@ class Image_PipeLine_Builder(object):
       if self._add_image_summary:
         tf.summary.image('train_processed_image', 
                           tf.expand_dims(dis_image, 0))
-      dis_image = tf.subtract(dis_image, 0.5)
-      dis_image = tf.multiply(dis_image, 2.0)
+      means = [123.68, 116.78, 103.94]
+      dis_image = mean_image_subtraction(dis_image, means)
+      # dis_image = tf.subtract(dis_image, 0.5)
+      # dis_image = tf.multiply(dis_image, 2.0)
       label = tf.cast(label, tf.int32)
       return dis_image, label 
 
@@ -165,7 +159,8 @@ class Image_PipeLine_Builder(object):
       # parser the example
       image, label = self._example_parser(example_proto)
       image = tf.image.decode_jpeg(image, channels=3)
-      image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+      # image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+      image = tf.to_float(image)
       if self._use_central_fraction:
         image = tf.image.central_crop(image, central_fraction=self._central_fraction_rate)
       # Resize the image to the specified height and width
@@ -173,8 +168,10 @@ class Image_PipeLine_Builder(object):
       image = tf.image.resize_bilinear(image, self._output_image_shape,
                                         align_corners=False)
       image = tf.squeeze(image, [0])
-      image = tf.subtract(image, 0.5)
-      image = tf.multiply(image, 2.0)
+      means = [123.68, 116.78, 103.94]
+      image = mean_image_subtraction(image, means)
+      # image = tf.subtract(image, 0.5)
+      # image = tf.multiply(image, 2.0)
       label = tf.cast(label, tf.int32)
       return image, label
 
@@ -229,7 +226,7 @@ def main(_):
   """ Test the input image pipeline"""
   data_dir = './flowers'
 
-  pl_builder = Image_PipeLine_Builder(data_dir, [299,299])
+  pl_builder = Image_PipeLine_Builder(data_dir, [224, 224])
 
   mode = 'train'
   batch_size = 32
@@ -239,11 +236,10 @@ def main(_):
                                      mode, batch_size,
                                      prefetch_buffer_size,
                                      num_parallel_calls=4)
-  # crop_images = list(pl_builder.crop_images_with_box)
 
   with tf.Session() as sess:
     run_op = [images, labels]
-    for i in range(64):
+    for i in range(2):
       np_images, np_labels = sess.run(run_op)
 
   #==================== 
@@ -251,9 +247,9 @@ def main(_):
   #==================== 
   plt.figure()
   plt.hold(True)
-  for i in range(16):
-    plt.subplot(4,4,i+1)
-    plt.imshow(np_images[i,:,:,:]) 
+  for i in range(8):
+    plt.subplot(4,2,i+1)
+    plt.imshow(np_images[i,:,:,:]/255.0) 
     plt.title("label num is %d" % 
                         np_labels[i])
 

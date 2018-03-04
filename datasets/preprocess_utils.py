@@ -62,7 +62,8 @@ def decode_and_crop(image_buffer, bbox= None, scope= None, ):
     crop_window = tf.stack([offset_y, offset_x, target_height, target_width])
     cropped_image = tf.image.decode_and_crop_jpeg(image_buffer, crop_window, 
                                                   channels=3)
-    return cropped_image, distort_bbox
+    # return cropped_image, distort_bbox
+    return cropped_image
 
 
 def distort_color(image, color_ordering=0, fast_mode=True, scope=None):
@@ -116,4 +117,18 @@ def distort_color(image, color_ordering=0, fast_mode=True, scope=None):
         raise ValueError('color_ordering must be in [0, 3]')
 
     # The random_* ops do not necessarily clamp.
-    return tf.clip_by_value(image, 0.0, 1.0)
+    return tf.clip_by_value(image, 0.0, 255.0)
+
+
+def mean_image_subtraction(image, means):
+  if image.get_shape().ndims != 3:
+    raise ValueError('Input must be of size [height, width, C>0]')
+  num_channels = image.get_shape().as_list()[-1]
+  if len(means) != num_channels:
+    raise ValueError('image channels must match the length of means list.')
+  
+  split_images = tf.split(image,num_channels, axis=2)
+  split_images = [split_images[i] - means[i] for i in range(num_channels)]
+  return tf.concat(split_images, axis=2)
+
+
